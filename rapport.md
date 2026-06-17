@@ -15,15 +15,15 @@ une par pathologie.
 
 ## Donnees
 
-Pour la partie principale, j'ai utilise ChestMNIST, qui fait partie de MedMNIST.
+Pour la partie principale, nous avons utilise ChestMNIST, qui fait partie de MedMNIST.
 Le dataset est adapte au projet car il fournit des radiographies thoraciques et
 14 labels de pathologies. Les splits officiels train, validation et test sont
 gardes pour eviter de refaire une separation aleatoire difficile a comparer.
 
-Pour la partie multimodale, j'ai ajoute OpenI/NLMCXR. J'ai recupere les rapports
+Pour la partie multimodale, nous avons ajoute OpenI/NLMCXR. Nous avons recupere les rapports
 OpenI et un sous-ensemble d'images PNG de l'archive officielle. Le manifest local
 contient 488 paires image + compte-rendu verifiees. Les labels OpenI ne sont pas
-directement au meme format que ChestMNIST, donc j'ai construit une harmonisation
+directement au meme format que ChestMNIST, donc nous avons construit une harmonisation
 simple a partir des tags MeSH et du texte des sections `indication`, `findings`
 et `impression`.
 
@@ -78,9 +78,9 @@ leger peuvent travailler en niveaux de gris.
 Les labels sont gardes au format multi-label binaire. La perte utilisee est
 `BCEWithLogitsLoss`, ce qui permet de laisser le modele produire des logits et
 d'appliquer ensuite une sigmoide par classe. Pour limiter l'effet du desequilibre
-des classes, j'ai ajoute une option `--pos-weight`.
+des classes, nous avons ajoute une option `--pos-weight`.
 
-J'ai aussi utilise une augmentation volontairement faible : petite rotation,
+Nous avons aussi utilise une augmentation volontairement faible : petite rotation,
 petite translation et changement d'echelle limite. L'idee est d'ameliorer un peu
 la robustesse sans transformer les radiographies de facon trop artificielle.
 
@@ -112,7 +112,7 @@ macro.
 
 ## Detection d'anomalies
 
-Pour la detection d'anomalies, j'ai choisi un autoencodeur convolutionnel. Il est
+Pour la detection d'anomalies, nous avons choisi un autoencodeur convolutionnel. Il est
 entraine sur les images considerees comme normales, c'est-a-dire sans label
 positif dans ChestMNIST. Le score d'anomalie correspond a l'erreur de
 reconstruction MSE.
@@ -134,7 +134,7 @@ ou d'un artefact d'image.
 
 ## Modelisation multimodale
 
-Pour la partie multimodale, j'ai utilise le sous-ensemble OpenI prepare dans
+Pour la partie multimodale, nous avons utilise le sous-ensemble OpenI prepare dans
 `data/openi/manifest.csv`. Trois variantes ont ete comparees :
 
 - image seule : petit encodeur CNN puis tete multi-label ;
@@ -197,7 +197,7 @@ le F1 n'est pas tres parlant.
 
 Toutes les experiences sont suivies avec MLflow dans `mlruns/`. Les scripts
 enregistrent les hyperparametres, les metriques, les checkpoints, les figures et
-les CSV de predictions. J'ai aussi ajoute un export global :
+les CSV de predictions. Nous avons aussi ajoute un export global :
 
 ```text
 artifacts/mlflow_runs_summary.csv

@@ -28,10 +28,10 @@ Les scripts ont ete testes avec Python 3.13 sur macOS.
 
 ## Donnees utilisees
 
-Pour la partie image supervisee, j'utilise ChestMNIST via `medmnist`. Le fichier
+Pour la partie image supervisee, nous utilisons ChestMNIST via `medmnist`. Le fichier
 est telecharge automatiquement dans `data/` au premier lancement.
 
-Pour la partie multimodale, j'utilise OpenI/NLMCXR. Les rapports sont dans
+Pour la partie multimodale, nous utilisons OpenI/NLMCXR. Les rapports sont dans
 `NLMCXR_reports.tgz` et les images dans `NLMCXR_png.tgz`. Le script
 `scripts/prepare_openi.py` construit ensuite un fichier
 `data/openi/manifest.csv` avec les colonnes :
@@ -46,7 +46,7 @@ Preparation OpenI :
 python3 scripts/prepare_openi.py --download-reports --download-images --extract
 ```
 
-Dans mon cas, l'archive image complete etait longue a telecharger. J'ai donc
+Dans notre cas, l'archive image complete etait longue a telecharger. Nous avons
 travaille avec un sous-ensemble reel extrait localement : 488 paires image +
 compte-rendu verifiees. Le script ignore les PNG incomplets.
 
