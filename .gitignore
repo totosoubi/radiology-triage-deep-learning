@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.cache/
+.matplotlib/
+.streamlit/
+data/*.npz
+data/openi/raw/
+data/openi/images/
+data/openi/reports/
+data/openi/manifest.csv
+mlruns/
+artifacts/*.pt
