@@ -94,10 +94,37 @@ def encode_report(report_text: str, stoi: dict[str, int], max_len: int) -> torch
 
 @st.cache_data
 def local_openi_images() -> list[str]:
+    manifest = load_openi_manifest()
+    if manifest is not None:
+        return manifest["image_path"].head(80).tolist()
     image_dir = ROOT / "data" / "openi" / "images"
     if not image_dir.exists():
         return []
     return [str(p.relative_to(ROOT)) for p in sorted(image_dir.glob("*.png"))[:80]]
+
+
+@st.cache_data
+def load_openi_manifest():
+    path = ROOT / "data" / "openi" / "manifest.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
+@st.cache_data
+def load_mlflow_summary():
+    path = ROOT / "artifacts" / "mlflow_runs_summary.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
+@st.cache_data
+def load_per_class_metrics(model_name: str):
+    path = ROOT / "artifacts" / f"per_class_metrics_{model_name}.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
 
 
 def prediction_frame(probs: np.ndarray, threshold: float) -> pd.DataFrame:
@@ -133,7 +160,7 @@ def run_anomaly(image: Image.Image, ae, ckpt):
     with torch.no_grad():
         rec = ae(x)
         score = torch.mean((rec - x) ** 2).item()
-    return score, float(ckpt["threshold"])
+    return score, float(ckpt["threshold"]), tensor_to_image(x[0]), tensor_to_image(rec[0]), error_image(x[0], rec[0])
 
 
 def run_fusion(image: Image.Image, report: str, model, ckpt):
@@ -149,6 +176,20 @@ def run_fusion(image: Image.Image, report: str, model, ckpt):
     return prediction_frame(probs, threshold), threshold
 
 
+def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
+    arr = tensor.detach().cpu()[0].numpy()
+    arr = ((arr + 1.0) / 2.0 * 255.0).clip(0, 255).astype("uint8")
+    return Image.fromarray(arr, mode="L")
+
+
+def error_image(x: torch.Tensor, rec: torch.Tensor) -> Image.Image:
+    err = torch.abs(x.detach().cpu()[0] - rec.detach().cpu()[0]).numpy()
+    if err.max() > 0:
+        err = err / err.max()
+    arr = (err * 255.0).clip(0, 255).astype("uint8")
+    return Image.fromarray(arr, mode="L")
+
+
 def risk_sentence(frame: pd.DataFrame, anomaly_result) -> str:
     positives = frame[frame["decision"].eq("positif")]
     if len(positives) == 0:
@@ -158,7 +199,7 @@ def risk_sentence(frame: pd.DataFrame, anomaly_result) -> str:
         main = f"Le signal principal est {top['libelle']} avec une probabilite de {top['probabilite']:.2f}."
     if anomaly_result is None:
         return main
-    score, threshold = anomaly_result
+    score, threshold = anomaly_result[:2]
     if score >= threshold:
         return main + " L'image est aussi consideree atypique par l'autoencodeur."
     return main + " Le score d'anomalie reste sous le seuil appris."
@@ -169,12 +210,46 @@ def show_probability_bars(frame: pd.DataFrame, n: int = 8) -> None:
         st.progress(float(row["probabilite"]), text=f"{row['libelle']} - {row['probabilite']:.3f}")
 
 
+def update_decisions(frame: pd.DataFrame, threshold: float) -> pd.DataFrame:
+    updated = frame.copy()
+    updated["decision"] = np.where(updated["probabilite"] >= threshold, "positif", "negatif")
+    return updated
+
+
+def case_markdown(image_name: str, frame: pd.DataFrame, anomaly_result, report: str, fusion_result) -> str:
+    top = frame.head(5)
+    lines = [
+        "# Synthese du cas",
+        "",
+        f"- Image: `{image_name}`",
+        "- Type: radiographie thoracique",
+        "",
+        "## Predictions image",
+    ]
+    for _, row in top.iterrows():
+        lines.append(f"- {row['libelle']}: {row['probabilite']:.3f} ({row['decision']})")
+    if anomaly_result is not None:
+        score, threshold = anomaly_result[:2]
+        status = "atypique" if score >= threshold else "sous le seuil"
+        lines.extend(["", "## Anomalie", f"- Score AE: {score:.5f}", f"- Seuil: {threshold:.5f}", f"- Statut: {status}"])
+    if report.strip():
+        lines.extend(["", "## Compte-rendu saisi", report.strip()])
+    if fusion_result is not None:
+        fusion_frame, _ = fusion_result
+        lines.extend(["", "## Top predictions fusion image + texte"])
+        for _, row in fusion_frame.head(5).iterrows():
+            lines.append(f"- {row['libelle']}: {row['probabilite']:.3f}")
+    lines.extend(["", "Note: prototype pedagogique, pas un dispositif medical."])
+    return "\n".join(lines)
+
+
 st.set_page_config(page_title="Tri radiologique", layout="wide")
 st.title("Systeme d'aide au tri radiologique")
 
 model, supervised_ckpt = load_supervised()
 ae, ae_ckpt = load_ae()
 fusion_model, fusion_ckpt = load_fusion()
+manifest = load_openi_manifest()
 
 with st.sidebar:
     st.subheader("Entree")
@@ -183,7 +258,18 @@ with st.sidebar:
     if sample_images:
         selected_sample = st.selectbox("Image OpenI locale", ["Aucune", *sample_images])
     uploaded = st.file_uploader("Importer une radiographie", type=["png", "jpg", "jpeg"])
-    report = st.text_area("Compte-rendu", height=150)
+    sample_report = ""
+    if manifest is not None and selected_sample != "Aucune":
+        row = manifest[manifest["image_path"].eq(selected_sample)]
+        if not row.empty:
+            sample_report = str(row.iloc[0]["report"])
+    use_openi_report = st.checkbox("Utiliser le compte-rendu OpenI", value=bool(sample_report))
+    report_default = sample_report if use_openi_report else ""
+    report = st.text_area("Compte-rendu", value=report_default, height=150, key=f"report_{selected_sample}_{use_openi_report}")
+    st.subheader("Affichage")
+    top_n = st.slider("Nombre de pathologies affichees", 3, 14, 8)
+    threshold_override = st.slider("Seuil image", 0.05, 0.95, 0.50, 0.05)
+    fusion_threshold_override = st.slider("Seuil fusion", 0.05, 0.95, 0.50, 0.05)
     st.caption("Le modele ne remplace pas un avis medical.")
 
 image = None
@@ -192,7 +278,8 @@ if uploaded is not None:
     image = Image.open(uploaded).convert("L")
     image_name = uploaded.name
 elif selected_sample != "Aucune":
-    image = Image.open(ROOT / selected_sample).convert("L")
+    image_path = ROOT / "data" / "openi" / selected_sample if not selected_sample.startswith("data/") else ROOT / selected_sample
+    image = Image.open(image_path).convert("L")
     image_name = selected_sample
 
 if image is None:
@@ -208,9 +295,16 @@ if supervised_result is None:
     st.stop()
 
 supervised_frame, supervised_threshold = supervised_result
+supervised_frame = update_decisions(supervised_frame, threshold_override)
+supervised_threshold = threshold_override
+if fusion_result is not None:
+    fusion_frame_raw, _ = fusion_result
+    fusion_result = (update_decisions(fusion_frame_raw, fusion_threshold_override), fusion_threshold_override)
 
-tab_simple, tab_pro, tab_multi, tab_method = st.tabs(
-    ["Vue simple", "Vue professionnelle", "Image + texte", "Methodologie"]
+case_md = case_markdown(image_name or "image importee", supervised_frame, anomaly_result, report, fusion_result)
+
+tab_simple, tab_pro, tab_anomaly, tab_multi, tab_perf, tab_method = st.tabs(
+    ["Vue simple", "Vue professionnelle", "Anomalie", "Image + texte", "Performances", "Methodologie"]
 )
 
 with tab_simple:
@@ -222,10 +316,17 @@ with tab_simple:
     top3["probabilite"] = top3["probabilite"].map(lambda x: f"{x:.2f}")
     right.dataframe(top3, hide_index=True, use_container_width=True)
     if anomaly_result is not None:
-        score, threshold = anomaly_result
+        score, threshold = anomaly_result[:2]
         status = "Atypique" if score >= threshold else "Sous le seuil"
         right.metric("Score d'anomalie", f"{score:.5f}", delta=f"{status} / seuil {threshold:.5f}")
     right.caption("Les probabilites sont des aides au tri et doivent etre relues par un professionnel.")
+    right.download_button("Exporter la synthese Markdown", case_md, file_name="synthese_cas.md", mime="text/markdown")
+    right.download_button(
+        "Exporter les predictions CSV",
+        supervised_frame.to_csv(index=False),
+        file_name="predictions_image.csv",
+        mime="text/csv",
+    )
 
 with tab_pro:
     st.subheader("Predictions supervisees")
@@ -234,10 +335,32 @@ with tab_pro:
     c2.metric("Seuil de decision", f"{supervised_threshold:.2f}")
     if anomaly_result is not None:
         c3.metric("MSE anomalie", f"{anomaly_result[0]:.5f}")
-    show_probability_bars(supervised_frame, n=14)
+    show_probability_bars(supervised_frame, n=top_n)
     table = supervised_frame.copy()
     table["probabilite"] = table["probabilite"].map(lambda x: f"{x:.4f}")
     st.dataframe(table, hide_index=True, use_container_width=True)
+    metrics = load_per_class_metrics(supervised_ckpt["model"])
+    if metrics is not None:
+        st.subheader("Metriques de reference par classe")
+        metric_view = metrics[["label", "support", "average_precision", "auc", "f1"]].copy()
+        metric_view.insert(1, "libelle", metric_view["label"].map(LABEL_FR))
+        st.dataframe(metric_view, hide_index=True, use_container_width=True)
+
+with tab_anomaly:
+    st.subheader("Detection d'anomalies")
+    if anomaly_result is None:
+        st.warning("Le checkpoint AE `artifacts/best_ae.pt` est introuvable.")
+    else:
+        score, threshold, input_img, rec_img, err_img = anomaly_result
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Score MSE", f"{score:.5f}")
+        c2.metric("Seuil appris", f"{threshold:.5f}")
+        c3.metric("Statut", "Atypique" if score >= threshold else "Sous le seuil")
+        img_cols = st.columns(3)
+        img_cols[0].image(input_img, caption="Image pretraitee", use_container_width=True)
+        img_cols[1].image(rec_img, caption="Reconstruction AE", use_container_width=True)
+        img_cols[2].image(err_img, caption="Carte d'erreur", use_container_width=True)
+        st.caption("La carte d'erreur montre les zones que l'autoencodeur reconstruit le moins bien.")
 
 with tab_multi:
     st.subheader("Fusion image + compte-rendu")
@@ -250,7 +373,7 @@ with tab_multi:
         c1, c2 = st.columns([1, 1])
         c1.metric("Seuil fusion", f"{fusion_threshold:.2f}")
         c2.metric("Vocabulaire texte", len(fusion_ckpt["vocab"]))
-        show_probability_bars(fusion_frame, n=8)
+        show_probability_bars(fusion_frame, n=top_n)
         compare = supervised_frame[["pathologie", "libelle", "probabilite"]].merge(
             fusion_frame[["pathologie", "probabilite"]],
             on="pathologie",
@@ -260,6 +383,37 @@ with tab_multi:
         compare["probabilite_image"] = compare["probabilite_image"].map(lambda x: f"{x:.4f}")
         compare["probabilite_fusion"] = compare["probabilite_fusion"].map(lambda x: f"{x:.4f}")
         st.dataframe(compare, hide_index=True, use_container_width=True)
+        st.download_button(
+            "Exporter la comparaison CSV",
+            compare.to_csv(index=False),
+            file_name="comparaison_image_fusion.csv",
+            mime="text/csv",
+        )
+
+with tab_perf:
+    st.subheader("Runs et artefacts")
+    summary = load_mlflow_summary()
+    if summary is None:
+        st.info("Aucun export MLflow disponible.")
+    else:
+        cols = [
+            "experiment",
+            "run_name",
+            "status",
+            "metric.test_auc_micro",
+            "metric.test_ap_micro",
+            "metric.test_f1_macro",
+        ]
+        cols = [c for c in cols if c in summary.columns]
+        view = summary[cols].tail(12).copy()
+        st.dataframe(view, hide_index=True, use_container_width=True)
+    st.subheader("Fichiers utiles")
+    for path in [
+        ROOT / "artifacts" / "mlflow_runs_summary.csv",
+        ROOT / "artifacts" / "eda_label_distribution.png",
+        ROOT / "artifacts" / "ae_error_histogram.png",
+    ]:
+        st.write(f"`{path.relative_to(ROOT)}`", "present" if path.exists() else "absent")
 
 with tab_method:
     st.subheader("Contexte du prototype")
