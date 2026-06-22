@@ -127,6 +127,14 @@ def load_per_class_metrics(model_name: str):
     return pd.read_csv(path)
 
 
+@st.cache_data
+def load_scientific_summary():
+    path = ROOT / "artifacts" / "scientific_summary.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
 def prediction_frame(probs: np.ndarray, threshold: float) -> pd.DataFrame:
     frame = pd.DataFrame(
         {
@@ -392,6 +400,17 @@ with tab_multi:
 
 with tab_perf:
     st.subheader("Runs et artefacts")
+    scientific = load_scientific_summary()
+    if scientific is not None:
+        st.subheader("Evaluation scientifique renforcee")
+        st.dataframe(scientific, hide_index=True, use_container_width=True)
+        curve_cols = st.columns(2)
+        pr_path = ROOT / "artifacts" / "curve_pr_micro_cnn.png"
+        roc_path = ROOT / "artifacts" / "curve_roc_micro_cnn.png"
+        if pr_path.exists():
+            curve_cols[0].image(pr_path, caption="Courbe precision-rappel micro", use_container_width=True)
+        if roc_path.exists():
+            curve_cols[1].image(roc_path, caption="Courbe ROC micro", use_container_width=True)
     summary = load_mlflow_summary()
     if summary is None:
         st.info("Aucun export MLflow disponible.")

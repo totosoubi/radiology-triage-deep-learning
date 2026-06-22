@@ -204,7 +204,14 @@ def main() -> None:
         per_class_path = Path("artifacts") / f"per_class_metrics_{args.model}.csv"
         per_class.to_csv(per_class_path, index=False)
         pred_path = Path("artifacts") / f"predictions_{args.model}.csv"
-        pd.DataFrame(p_test, columns=CHEST_LABELS).assign(row_id=np.arange(len(p_test))).to_csv(pred_path, index=False)
+        pred_frame = pd.DataFrame(
+            {
+                **{f"prob_{label}": p_test[:, i] for i, label in enumerate(CHEST_LABELS)},
+                **{f"true_{label}": y_test[:, i].astype(int) for i, label in enumerate(CHEST_LABELS)},
+            }
+        )
+        pred_frame.insert(0, "row_id", np.arange(len(p_test)))
+        pred_frame.to_csv(pred_path, index=False)
         dist_path = Path("artifacts") / f"label_distribution_{args.model}.png"
         ap_path = Path("artifacts") / f"per_class_ap_{args.model}.png"
         save_label_distribution(y_test, dist_path)

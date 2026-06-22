@@ -165,33 +165,47 @@ Synthese des derniers runs MLflow :
 
 | experience | run | auc_micro | ap_micro | f1_macro |
 | --- | --- | ---: | ---: | ---: |
+| ChestMNIST | cnn renforce | 0.6335 | 0.0783 | 0.1179 |
 | multimodal | fusion | 0.6986 | 0.1918 | 0.0654 |
 | multimodal | text | 0.6846 | 0.1018 | 0.1280 |
-| ChestMNIST | cnn | 0.6082 | 0.0673 | 0.1027 |
 | ChestMNIST | vit | 0.5670 | 0.0595 | 0.1014 |
 | ChestMNIST | resnet18 | 0.5138 | 0.0497 | 0.1033 |
 | multimodal | image | 0.4917 | 0.0438 | 0.0815 |
 
-Sur ChestMNIST, le CNN simple donne le meilleur AUROC micro dans ces runs. Le ViT
-reste proche mais n'apporte pas de gain clair dans cette configuration. Le
-ResNet18 n'est pas meilleur ici, probablement parce que les runs sont courts et
-que le passage a des images medicales basse resolution limite l'avantage du
+Nous avons relance le CNN sur un sous-ensemble plus large avec plus d'epochs.
+Ce run ameliore l'AUROC micro et macro par rapport au premier essai. Pour rendre
+l'evaluation plus solide, nous avons aussi calcule des intervalles de confiance
+bootstrap sur 200 reechantillonnages :
+
+| modele | auc_micro | IC 95 % auc_micro | ap_micro | IC 95 % ap_micro | f1_macro | IC 95 % f1_macro |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| cnn | 0.6335 | [0.6274 ; 0.6393] | 0.0783 | [0.0755 ; 0.0808] | 0.1179 | [0.1150 ; 0.1205] |
+
+Le ViT reste proche mais n'apporte pas de gain clair dans cette configuration.
+Le ResNet18 n'est pas meilleur ici, probablement parce que les runs sont courts
+et que le passage a des images medicales basse resolution limite l'avantage du
 pre-entrainement ImageNet.
 
 Quelques resultats par classe pour le CNN :
 
 | label | support | AP | AUC | F1 |
 | --- | ---: | ---: | ---: | ---: |
-| atelectasis | 231 | 0.1447 | 0.5803 | 0.2130 |
-| effusion | 247 | 0.1562 | 0.5773 | 0.2345 |
-| infiltration | 349 | 0.1877 | 0.5413 | 0.2823 |
-| pneumothorax | 99 | 0.0677 | 0.5821 | 0.1185 |
-| edema | 39 | 0.0326 | 0.7012 | 0.0671 |
-| hernia | 1 | 0.0013 | 0.6173 | 0.0000 |
+| atelectasis | 1279 | 0.1601 | 0.6470 | 0.2416 |
+| effusion | 1417 | 0.2079 | 0.6894 | 0.2924 |
+| infiltration | 2084 | 0.2510 | 0.6106 | 0.3235 |
+| pneumothorax | 578 | 0.0583 | 0.5641 | 0.1044 |
+| edema | 223 | 0.0495 | 0.7836 | 0.0766 |
+| hernia | 19 | 0.0063 | 0.7393 | 0.0053 |
 
-Les classes les plus rares restent les plus difficiles. Le cas `hernia`, par
-exemple, n'a qu'un seul positif dans le sous-ensemble de test utilise ici, donc
-le F1 n'est pas tres parlant.
+Les classes les plus rares restent les plus difficiles. Meme apres un run plus
+large, `hernia` garde tres peu de positifs, donc le F1 reste peu stable.
+
+Les nouveaux artefacts d'evaluation sont :
+
+- `artifacts/scientific_summary.csv`
+- `artifacts/per_class_thresholds.csv`
+- `artifacts/curve_pr_micro_cnn.png`
+- `artifacts/curve_roc_micro_cnn.png`
 
 ## Tracking MLflow
 

@@ -132,7 +132,14 @@ def main() -> None:
         metrics_path = Path("artifacts") / f"per_class_metrics_multimodal_{args.mode}.csv"
         pred_path = Path("artifacts") / f"predictions_multimodal_{args.mode}.csv"
         per_class.to_csv(metrics_path, index=False)
-        pd.DataFrame(p_test, columns=CHEST_LABELS).assign(row_id=np.arange(len(p_test))).to_csv(pred_path, index=False)
+        pred_frame = pd.DataFrame(
+            {
+                **{f"prob_{label}": p_test[:, i] for i, label in enumerate(CHEST_LABELS)},
+                **{f"true_{label}": y_test[:, i].astype(int) for i, label in enumerate(CHEST_LABELS)},
+            }
+        )
+        pred_frame.insert(0, "row_id", np.arange(len(p_test)))
+        pred_frame.to_csv(pred_path, index=False)
         mlflow.log_artifact(str(best_path), artifact_path="models")
         mlflow.log_artifact(str(metrics_path), artifact_path="metrics")
         mlflow.log_artifact(str(pred_path), artifact_path="predictions")

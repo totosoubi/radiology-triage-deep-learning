@@ -99,6 +99,13 @@ Pour obtenir un CSV recapitulatif :
 python3 scripts/export_mlflow_summary.py
 ```
 
+Pour recalculer les courbes PR/ROC, les seuils par classe et les intervalles de
+confiance bootstrap :
+
+```bash
+python3 scripts/scientific_evaluation.py --models cnn --bootstrap 200
+```
+
 Le rapport peut ensuite etre regenere avec :
 
 ```bash
