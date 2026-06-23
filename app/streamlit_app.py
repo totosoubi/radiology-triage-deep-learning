@@ -135,6 +135,14 @@ def load_scientific_summary():
     return pd.read_csv(path)
 
 
+@st.cache_data
+def load_error_summary():
+    path = ROOT / "artifacts" / "error_summary_cnn.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
 def prediction_frame(probs: np.ndarray, threshold: float) -> pd.DataFrame:
     frame = pd.DataFrame(
         {
@@ -411,6 +419,15 @@ with tab_perf:
             curve_cols[0].image(pr_path, caption="Courbe precision-rappel micro", use_container_width=True)
         if roc_path.exists():
             curve_cols[1].image(roc_path, caption="Courbe ROC micro", use_container_width=True)
+    error_summary = load_error_summary()
+    gradcam_path = ROOT / "artifacts" / "gradcam_error_cases_cnn.png"
+    if error_summary is not None or gradcam_path.exists():
+        st.subheader("Analyse qualitative et interpretabilite")
+        if gradcam_path.exists():
+            st.image(gradcam_path, caption="Cas TP, FP et FN avec Grad-CAM sur la classe cible", use_container_width=True)
+        if error_summary is not None:
+            cols = ["label", "support", "tp", "fp", "fn", "false_positive_rate", "false_negative_rate"]
+            st.dataframe(error_summary[cols], hide_index=True, use_container_width=True)
     summary = load_mlflow_summary()
     if summary is None:
         st.info("Aucun export MLflow disponible.")
@@ -453,5 +470,6 @@ with tab_method:
         - `artifacts/best_ae.pt`
         - `artifacts/best_multimodal_fusion.pt`
         - `artifacts/mlflow_runs_summary.csv`
+        - `artifacts/gradcam_error_cases_cnn.png`
         """
     )

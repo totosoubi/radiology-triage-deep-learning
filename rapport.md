@@ -165,21 +165,23 @@ Synthese des derniers runs MLflow :
 
 | experience | run | auc_micro | ap_micro | f1_macro |
 | --- | --- | ---: | ---: | ---: |
-| ChestMNIST | cnn renforce | 0.6335 | 0.0783 | 0.1179 |
+| ChestMNIST | cnn renforce | 0.6542 | 0.0907 | 0.1272 |
 | multimodal | fusion | 0.6986 | 0.1918 | 0.0654 |
 | multimodal | text | 0.6846 | 0.1018 | 0.1280 |
 | ChestMNIST | vit | 0.5670 | 0.0595 | 0.1014 |
 | ChestMNIST | resnet18 | 0.5138 | 0.0497 | 0.1033 |
 | multimodal | image | 0.4917 | 0.0438 | 0.0815 |
 
-Nous avons relance le CNN sur un sous-ensemble plus large avec plus d'epochs.
-Ce run ameliore l'AUROC micro et macro par rapport au premier essai. Pour rendre
-l'evaluation plus solide, nous avons aussi calcule des intervalles de confiance
-bootstrap sur 200 reechantillonnages :
+Nous avons relance le CNN sur un sous-ensemble plus large avec plus d'epochs :
+30 000 images, augmentation, ponderation des labels positifs, scheduler cosinus
+et early stopping. Ce run ameliore l'AUROC micro, l'average precision et le F1
+macro par rapport au premier essai. Pour rendre l'evaluation plus solide, nous
+avons aussi calcule des intervalles de confiance bootstrap sur 200
+reechantillonnages :
 
 | modele | auc_micro | IC 95 % auc_micro | ap_micro | IC 95 % ap_micro | f1_macro | IC 95 % f1_macro |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| cnn | 0.6335 | [0.6274 ; 0.6393] | 0.0783 | [0.0755 ; 0.0808] | 0.1179 | [0.1150 ; 0.1205] |
+| cnn | 0.6542 | [0.6498 ; 0.6597] | 0.0907 | [0.0882 ; 0.0929] | 0.1272 | [0.1247 ; 0.1307] |
 
 Le ViT reste proche mais n'apporte pas de gain clair dans cette configuration.
 Le ResNet18 n'est pas meilleur ici, probablement parce que les runs sont courts
@@ -190,12 +192,12 @@ Quelques resultats par classe pour le CNN :
 
 | label | support | AP | AUC | F1 |
 | --- | ---: | ---: | ---: | ---: |
-| atelectasis | 1279 | 0.1601 | 0.6470 | 0.2416 |
-| effusion | 1417 | 0.2079 | 0.6894 | 0.2924 |
-| infiltration | 2084 | 0.2510 | 0.6106 | 0.3235 |
-| pneumothorax | 578 | 0.0583 | 0.5641 | 0.1044 |
-| edema | 223 | 0.0495 | 0.7836 | 0.0766 |
-| hernia | 19 | 0.0063 | 0.7393 | 0.0053 |
+| atelectasis | 2420 | 0.1654 | 0.6612 | 0.2586 |
+| effusion | 2754 | 0.2416 | 0.7092 | 0.3184 |
+| infiltration | 3938 | 0.2610 | 0.6201 | 0.3295 |
+| pneumothorax | 1089 | 0.0645 | 0.5903 | 0.1130 |
+| edema | 413 | 0.0677 | 0.8137 | 0.0920 |
+| hernia | 42 | 0.0073 | 0.7444 | 0.0070 |
 
 Les classes les plus rares restent les plus difficiles. Meme apres un run plus
 large, `hernia` garde tres peu de positifs, donc le F1 reste peu stable.
@@ -206,6 +208,45 @@ Les nouveaux artefacts d'evaluation sont :
 - `artifacts/per_class_thresholds.csv`
 - `artifacts/curve_pr_micro_cnn.png`
 - `artifacts/curve_roc_micro_cnn.png`
+
+## Analyse qualitative et interpretabilite
+
+Pour completer les metriques globales, nous avons ajoute une analyse d'erreurs
+sur le CNN. L'objectif est de ne pas seulement regarder un score moyen, mais
+aussi de comprendre quels types d'erreurs le modele produit avec le seuil global
+retenu a 0.50.
+
+Resume TP/FP/FN sur quelques classes importantes :
+
+| label | support | TP | FP | FN | taux FP | taux FN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| atelectasis | 2420 | 1592 | 8300 | 828 | 0.4147 | 0.3421 |
+| effusion | 2754 | 1832 | 6920 | 922 | 0.3516 | 0.3348 |
+| infiltration | 3938 | 2251 | 7475 | 1687 | 0.4042 | 0.4284 |
+| edema | 413 | 333 | 6494 | 80 | 0.2949 | 0.1937 |
+
+Ces chiffres confirment une limite importante : le modele prefere souvent
+rappeler des cas positifs au prix de beaucoup de faux positifs. Dans un contexte
+de tri, ce comportement peut etre acceptable comme premiere priorisation, mais
+il n'est pas suffisant pour un usage diagnostique.
+
+Nous avons aussi genere des exemples representatifs de vrais positifs, faux
+positifs et faux negatifs pour `effusion`, `infiltration`, `atelectasis` et
+`edema`. Pour ces cas, une Grad-CAM est calculee sur la classe cible afin de
+visualiser les zones qui contribuent le plus au score du CNN. La figure produite
+est :
+
+```text
+artifacts/gradcam_error_cases_cnn.png
+```
+
+La Grad-CAM montre que le modele reagit globalement a la zone thoracique, mais
+les cartes restent diffuses. Nous les utilisons donc comme outil qualitatif de
+verification, pas comme preuve clinique. Les fichiers associes sont :
+
+- `artifacts/error_cases_cnn.csv`
+- `artifacts/error_summary_cnn.csv`
+- `artifacts/gradcam_error_cases_cnn.png`
 
 ## Tracking MLflow
 

@@ -57,6 +57,25 @@ def supervised_per_class_section() -> str:
     return "\n\n".join(blocks) if blocks else "Les metriques par classe seront produites apres entrainement supervise."
 
 
+def interpretability_section() -> str:
+    summary = read_csv("error_summary_cnn.csv")
+    cases = read_csv("error_cases_cnn.csv")
+    if summary is None and cases is None:
+        return "Analyse qualitative non generee."
+    parts = []
+    if summary is not None:
+        focus = summary[summary["label"].isin(["atelectasis", "effusion", "infiltration", "edema"])]
+        parts.append(markdown_table(focus, ["label", "support", "tp", "fp", "fn", "false_positive_rate", "false_negative_rate"]))
+    if cases is not None:
+        parts.append("Exemples representatifs TP/FP/FN :\n\n" + markdown_table(cases, ["label", "case_type", "row_id", "truth", "prediction", "probability"]))
+    parts.append(
+        "La figure `artifacts/gradcam_error_cases_cnn.png` superpose une carte Grad-CAM aux exemples. "
+        "Elle sert a verifier qualitativement que le modele reagit surtout a la zone thoracique, "
+        "mais elle ne constitue pas une explication clinique suffisante."
+    )
+    return "\n\n".join(parts)
+
+
 def multimodal_table() -> str:
     frames = []
     for mode in ("image", "text", "fusion"):
@@ -204,6 +223,10 @@ Synthese MLflow :
 {supervised_per_class_section()}
 
 Les warnings `UndefinedMetricWarning` observes sur les petits smoke tests indiquent que certains labels sont absents du sous-ensemble de validation/test. Ils disparaissent ou deviennent moins problematiques sur des runs plus grands.
+
+## Analyse qualitative et interpretabilite
+
+{interpretability_section()}
 
 ## Tracking MLflow
 

@@ -61,6 +61,7 @@ python3 scripts/run_eda.py
 Classification supervisee :
 
 ```bash
+python3 scripts/train_supervised.py --model cnn --epochs 8 --batch-size 64 --subset-size 30000 --image-size 64 --in-channels 1 --augment --pos-weight --patience 4
 python3 scripts/train_supervised.py --model cnn --epochs 3 --batch-size 64 --subset-size 2000 --image-size 64 --in-channels 1 --augment --pos-weight
 python3 scripts/train_supervised.py --model resnet18 --epochs 2 --batch-size 16 --subset-size 512 --image-size 64 --in-channels 3 --augment --pos-weight
 python3 scripts/train_supervised.py --model vit --epochs 2 --batch-size 32 --subset-size 1000 --image-size 64 --in-channels 1 --augment --pos-weight
@@ -80,9 +81,11 @@ python3 scripts/train_multimodal.py --mode text --manifest data/openi/manifest.c
 python3 scripts/train_multimodal.py --mode fusion --manifest data/openi/manifest.csv --epochs 5
 ```
 
-Les options `--subset-size` servent a garder des temps d'execution raisonnables
-sur machine locale. Pour des resultats plus propres, il faut augmenter les
-epochs et enlever les sous-echantillonnages.
+La premiere commande correspond au run CNN utilise dans le rapport final. Les
+autres commandes sont plus courtes et servent surtout de comparaison. Les options
+`--subset-size` gardent des temps d'execution raisonnables sur machine locale ;
+pour des resultats plus propres, il faut augmenter les epochs et reduire les
+sous-echantillonnages quand la machine le permet.
 
 ## MLflow
 
@@ -104,6 +107,12 @@ confiance bootstrap :
 
 ```bash
 python3 scripts/scientific_evaluation.py --models cnn --bootstrap 200
+```
+
+Pour generer l'analyse d'erreurs et les cartes Grad-CAM du CNN :
+
+```bash
+python3 scripts/interpretability_analysis.py --device cpu
 ```
 
 Le rapport peut ensuite etre regenere avec :
