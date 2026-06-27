@@ -1,5 +1,7 @@
 # Rapport final - Systeme d'aide au tri radiologique
 
+**Projet realise par Thomas Soubirou-Pouey et Estelle Letourneur**
+
 ## Probleme
 
 Le but du projet est de construire un prototype d'aide au tri radiologique a
@@ -87,6 +89,12 @@ la robustesse sans transformer les radiographies de facon trop artificielle.
 Pour la reproductibilite, une seed est fixee, les splits officiels sont gardes,
 et le meilleur modele est sauvegarde selon la validation.
 
+Pour OpenI, le decoupage train, validation et test est pseudo-aleatoire mais
+reproductible avec la seed fixee. Le manifest disponible ne fournit pas un
+identifiant patient suffisamment fiable pour imposer un decoupage par patient :
+cette limite est documentee et interdit de presenter ces resultats comme une
+validation clinique sans fuite potentielle.
+
 ## Modelisation supervisee
 
 Trois architectures ont ete implementees, comme demande dans le sujet.
@@ -155,6 +163,14 @@ moyen, mais le F1 reste faible. Cela vient en partie du faible volume OpenI loca
 et du desequilibre des labels. Le resultat montre surtout que la brique
 multimodale fonctionne et que le texte apporte une information utile.
 
+La fusion est intermediaire : les representations de l'image et du texte sont
+concatenees avant la tete de classification. Pendant l'entrainement, seules des
+paires completes sont utilisees, ce qui simplifie l'alignement mais ne traite pas
+explicitement les rapports manquants. Dans le demonstrateur, l'absence de texte
+n'empeche pas la prediction image ; elle desactive seulement la prediction
+fusionnee. Une suite logique serait d'entrainer avec masquage aleatoire du texte
+pour rendre la fusion plus robuste aux modalites manquantes.
+
 ## Evaluation
 
 Les metriques suivies sont AUROC micro/macro, average precision micro/macro et
@@ -209,7 +225,7 @@ Les nouveaux artefacts d'evaluation sont :
 - `artifacts/curve_pr_micro_cnn.png`
 - `artifacts/curve_roc_micro_cnn.png`
 
-## Analyse qualitative et interpretabilite
+### Analyse qualitative et interpretabilite
 
 Pour completer les metriques globales, nous avons ajoute une analyse d'erreurs
 sur le CNN. L'objectif est de ne pas seulement regarder un score moyen, mais
@@ -257,6 +273,27 @@ les CSV de predictions. Nous avons aussi ajoute un export global :
 ```text
 artifacts/mlflow_runs_summary.csv
 ```
+
+Pour le rendu, une synthese plus courte relie chaque run retenu a son checkpoint :
+
+- `artifacts/mlflow_selected_runs.csv`
+- `artifacts/mlflow_selected_runs.png`
+
+![Synthese des runs MLflow et modeles retenus](artifacts/mlflow_selected_runs.png)
+
+Le modele supervise retenu est le CNN du run
+`db42c7cfe8ea46199d95f141db0129a9`, entraine sur 30 000 images. Il obtient la
+meilleure AP micro parmi les trois runs principaux comparables et produit
+`artifacts/best_supervised.pt`, charge par Streamlit. L'autoencodeur expose
+provient du run `936c89d41e7a4831b6489672f7b86ebd` et le modele de fusion OpenI du
+run `942b66a4d1ef4300b2f9133c2af6bcb7`.
+
+Les durees MLflow mesurees de bout en bout sont d'environ 858 s pour le CNN
+retenu, 31 s pour le ResNet18, 4 s pour le TinyViT, 16 s pour l'AE et 8 s pour
+la fusion OpenI. Elles ne constituent pas un benchmark entre architectures, car
+les tailles de sous-ensembles et le nombre d'epochs ne sont pas identiques. Les
+runs ont ete realises sur CPU sous macOS, ce qui explique le choix de modeles
+legers et de sous-echantillonnages pour certaines comparaisons.
 
 Les experiences principales sont :
 

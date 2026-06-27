@@ -1,0 +1,8 @@
+component,run_name,role,deployed_in_streamlit,run_id,status,duration_seconds,test_auc_micro,test_ap_micro,test_f1_macro,selected_threshold,checkpoint
+classification supervisee,cnn,modele supervise deploye,oui,db42c7cfe8ea46199d95f141db0129a9,FINISHED,857.954,0.6541689014378325,0.09069881017764585,0.1271565654635029,0.49999999999999994,artifacts/best_supervised.pt
+classification supervisee,resnet18,comparaison supervisee,non,7960d09571ce451c9ed3a121bfbf165d,FINISHED,30.951,0.5138103857186724,0.04974076059196403,0.10328025912106299,0.44999999999999996,artifacts/best_supervised_resnet18.pt
+classification supervisee,vit,comparaison supervisee,non,b846399e87fb4f808e2b6711d50bf99a,FINISHED,4.231,0.5669783437176862,0.05951005058906143,0.10135270789311511,0.44999999999999996,artifacts/best_supervised_vit.pt
+detection d'anomalies,conv_ae,autoencodeur deploye,oui,936c89d41e7a4831b6489672f7b86ebd,FINISHED,15.753,,,,,artifacts/best_ae.pt
+multimodalite,image,comparaison multimodale,non,06d6e3ed913d405fad8f310770c06d9c,FINISHED,8.175,0.49167764602547204,0.043752784136443665,0.08147334773532765,0.05,artifacts/best_multimodal_image.pt
+multimodalite,text,comparaison multimodale,non,8168b62865a94790a6b45a4731404385,FINISHED,5.127,0.684628897672376,0.10175452478917563,0.1279717223789929,0.1,artifacts/best_multimodal_text.pt
+multimodalite,fusion,modele multimodal deploye,oui,942b66a4d1ef4300b2f9133c2af6bcb7,FINISHED,7.892,0.6985946420729029,0.19175369288297994,0.06537549363179615,0.05,artifacts/best_multimodal_fusion.pt

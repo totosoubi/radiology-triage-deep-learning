@@ -120,6 +120,14 @@ def load_mlflow_summary():
 
 
 @st.cache_data
+def load_selected_mlflow_runs():
+    path = ROOT / "artifacts" / "mlflow_selected_runs.csv"
+    if not path.exists():
+        return None
+    return pd.read_csv(path)
+
+
+@st.cache_data
 def load_per_class_metrics(model_name: str):
     path = ROOT / "artifacts" / f"per_class_metrics_{model_name}.csv"
     if not path.exists():
@@ -408,6 +416,15 @@ with tab_multi:
 
 with tab_perf:
     st.subheader("Runs et artefacts")
+    selected_runs = load_selected_mlflow_runs()
+    selected_runs_figure = ROOT / "artifacts" / "mlflow_selected_runs.png"
+    if selected_runs is not None:
+        st.subheader("Modeles retenus pour le demonstrateur")
+        deployed = selected_runs[selected_runs["deployed_in_streamlit"].eq("oui")]
+        columns = ["component", "run_name", "run_id", "test_auc_micro", "test_ap_micro", "test_f1_macro", "checkpoint"]
+        st.dataframe(deployed[columns], hide_index=True, use_container_width=True)
+    if selected_runs_figure.exists():
+        st.image(selected_runs_figure, caption="Export des runs MLflow retenus et de comparaison", use_container_width=True)
     scientific = load_scientific_summary()
     if scientific is not None:
         st.subheader("Evaluation scientifique renforcee")
@@ -446,6 +463,8 @@ with tab_perf:
     st.subheader("Fichiers utiles")
     for path in [
         ROOT / "artifacts" / "mlflow_runs_summary.csv",
+        ROOT / "artifacts" / "mlflow_selected_runs.csv",
+        ROOT / "artifacts" / "mlflow_selected_runs.png",
         ROOT / "artifacts" / "eda_label_distribution.png",
         ROOT / "artifacts" / "ae_error_histogram.png",
     ]:
@@ -470,6 +489,8 @@ with tab_method:
         - `artifacts/best_ae.pt`
         - `artifacts/best_multimodal_fusion.pt`
         - `artifacts/mlflow_runs_summary.csv`
+        - `artifacts/mlflow_selected_runs.csv`
+        - `artifacts/mlflow_selected_runs.png`
         - `artifacts/gradcam_error_cases_cnn.png`
         """
     )

@@ -46,6 +46,17 @@ def best_runs_table() -> str:
     return markdown_table(done, cols)
 
 
+def selected_runs_table() -> str:
+    df = read_csv("mlflow_selected_runs.csv")
+    if df is None:
+        return "Export des runs retenus non genere."
+    columns = [
+        "component", "run_name", "role", "run_id", "duration_seconds",
+        "test_auc_micro", "test_ap_micro", "test_f1_macro", "checkpoint",
+    ]
+    return markdown_table(df, columns)
+
+
 def supervised_per_class_section() -> str:
     blocks = []
     for model in ("cnn", "resnet18", "vit"):
@@ -148,6 +159,8 @@ def main() -> None:
     os_name = f"{platform.system()} {platform.release()} - Python {platform.python_version()}"
     text = f"""# Rapport final - Systeme d'aide au tri radiologique
 
+**Projet realise par Thomas Soubirou-Pouey et Estelle Letourneur**
+
 ## Probleme
 
 Le systeme vise un tri radiologique assiste par IA a partir de radiographies thoraciques. La sortie supervisee est multi-label : chaque image recoit une probabilite independante pour 14 pathologies. Le demonstrateur ajoute un score d'anomalie afin d'identifier des cas qui s'ecartent des images apprises comme normales.
@@ -173,7 +186,7 @@ Artefacts EDA produits :
 
 Les labels sont traites en binaire multi-label. La fonction de perte est `BCEWithLogitsLoss`, compatible avec des sorties logits et une activation sigmoide par classe a l'evaluation. L'option `--pos-weight` corrige le desequilibre des classes par ponderation inverse positives/negatives. L'augmentation retenue est volontairement faible : rotations de 7 degres, translations de 3 % et echelle 0.97-1.03, afin de ne pas creer de geometrie thoracique non plausible.
 
-La reproductibilite repose sur une seed fixe, les splits officiels MedMNIST, la sauvegarde du meilleur modele sur validation, et un export MLflow.
+La reproductibilite repose sur une seed fixe, les splits officiels MedMNIST, la sauvegarde du meilleur modele sur validation, et un export MLflow. Pour OpenI, le split aleatoire est reproductible mais le manifest ne fournit pas d'identifiant patient fiable ; une absence totale de fuite au niveau patient ne peut donc pas etre garantie pour cette preuve de concept.
 
 ## Modelisation supervisee
 
@@ -212,6 +225,8 @@ Comparaison des runs disponibles :
 
 Ces valeurs proviennent des runs executes avec `data/openi/manifest.csv`, donc avec images et comptes-rendus OpenI reels. Le sous-ensemble reste limite par le temps de telechargement de l'archive officielle complete ; les metriques sont donc interpretees comme preuve de concept et non comme resultat clinique robuste.
 
+La fusion est intermediaire : les representations image et texte sont concatenees avant la tete finale. Les paires d'entrainement sont completes. Dans le demonstrateur, un rapport manquant desactive la fusion mais laisse la prediction image disponible ; un entrainement avec masquage aleatoire du texte serait necessaire pour rendre le modele fusionne robuste aux modalites manquantes.
+
 ## Evaluation
 
 Les metriques retenues sont AUROC micro/macro, average precision micro/macro et F1 micro/macro. L'average precision est particulierement pertinente en multi-label desequilibre car elle reste informative quand les positifs sont rares.
@@ -224,13 +239,19 @@ Synthese MLflow :
 
 Les warnings `UndefinedMetricWarning` observes sur les petits smoke tests indiquent que certains labels sont absents du sous-ensemble de validation/test. Ils disparaissent ou deviennent moins problematiques sur des runs plus grands.
 
-## Analyse qualitative et interpretabilite
+### Analyse qualitative et interpretabilite
 
 {interpretability_section()}
 
 ## Tracking MLflow
 
 Toutes les experiences sont journalisees dans `mlruns/`. Les scripts enregistrent hyperparametres, pertes, metriques, seuil retenu, checkpoints, figures, predictions et CSV par classe. Un export de lecture rapide est disponible dans `artifacts/mlflow_runs_summary.csv`.
+
+La preuve de selection fournie avec le rendu est disponible dans `artifacts/mlflow_selected_runs.csv` et `artifacts/mlflow_selected_runs.png`. Elle relie les runs retenus aux checkpoints charges par Streamlit :
+
+{selected_runs_table()}
+
+Les durees sont mesurees de bout en bout par MLflow. Elles documentent le cout local, mais ne forment pas un benchmark direct lorsque les tailles de sous-ensembles ou le nombre d'epochs different.
 
 Experiences creees :
 

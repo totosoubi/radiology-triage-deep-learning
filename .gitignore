@@ -11,3 +11,6 @@ data/openi/reports/
 data/openi/manifest.csv
 mlruns/
 artifacts/*.pt
+!artifacts/best_supervised.pt
+!artifacts/best_ae.pt
+!artifacts/best_multimodal_fusion.pt

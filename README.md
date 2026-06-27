@@ -8,12 +8,14 @@ ajout d'une modalite texte, suivi des experiences et interface de test.
 Le projet est surtout pense comme un prototype reproductible. Les resultats ne
 doivent pas etre interpretes comme des resultats cliniques.
 
+**Auteurs : Thomas Soubirou-Pouey et Estelle Letourneur**
+
 ## Organisation du dossier
 
 - `src/radiotriage/` : code Python commun, datasets, modeles et metriques.
 - `scripts/` : scripts pour l'EDA, les entrainements, MLflow et le rapport.
 - `app/streamlit_app.py` : demonstrateur Streamlit.
-- `artifacts/` : modeles sauvegardes, figures, predictions et exports CSV.
+- `artifacts/` : checkpoints deployes, figures, predictions et exports MLflow.
 - `mlruns/` : runs MLflow.
 - `rapport.md` : rapport final genere a partir des sorties du projet.
 - `data/` : donnees locales, non versionnees.
@@ -102,6 +104,12 @@ Pour obtenir un CSV recapitulatif :
 python3 scripts/export_mlflow_summary.py
 ```
 
+Cette commande produit deux niveaux de preuve :
+
+- `artifacts/mlflow_runs_summary.csv` : export complet des runs locaux ;
+- `artifacts/mlflow_selected_runs.csv` et `artifacts/mlflow_selected_runs.png` :
+  synthese des comparaisons, run retenu et checkpoints exposes dans Streamlit.
+
 Pour recalculer les courbes PR/ROC, les seuils par classe et les intervalles de
 confiance bootstrap :
 
@@ -134,6 +142,21 @@ Elle charge les checkpoints presents dans `artifacts/` :
 - `best_supervised.pt` pour les predictions image ;
 - `best_ae.pt` pour le score d'anomalie ;
 - `best_multimodal_fusion.pt` pour utiliser aussi un compte-rendu saisi.
+
+Ces trois checkpoints sont versionnes dans le depot. Le demonstrateur fonctionne
+donc apres installation des dependances, sans devoir relancer les entrainements.
+Il faut charger une radiographie thoracique au format PNG, JPG ou JPEG. Les
+donnees OpenI restent locales et ne sont pas necessaires pour tester une image
+importee.
+
+## Verification du rendu
+
+| Livrable | Element a remettre | Emplacement ou commande |
+| --- | --- | --- |
+| Rapport final | Sections imposees et auteurs | `rapport.md` |
+| Code | Supervise, AE, multimodal, MLflow | `scripts/`, `src/radiotriage/` |
+| Demonstrateur | Application locale fonctionnelle | `streamlit run app/streamlit_app.py` |
+| Preuve MLflow | Runs, selection et modeles deployes | `artifacts/mlflow_selected_runs.csv`, `artifacts/mlflow_selected_runs.png` |
 
 ## Points importants
 
